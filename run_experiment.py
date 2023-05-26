@@ -1,5 +1,6 @@
 from argparse import Namespace
 from typing import List
+from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
@@ -26,8 +27,15 @@ def main(cfg: DictConfig):
     if cfg.callbacks.early_stopping:
         callbacks.append(EarlyStopping(**cfg.callbacks.early_stopping))
 
-    trainer = Trainer(**cfg.trainer, callbacks=callbacks)
 
+    checkpoint_path = "/kaggle/input/hwdigitrectrain/lit_model.ckpt"
+    if Path(checkpoint_path).is_file():
+        print(f"Resuming from checkpoint: {checkpoint_path}")
+        trainer = Trainer(resume_from_checkpoint=checkpoint_path, **cfg.trainer, callbacks=callbacks)
+    else:
+        print("No checkpoint found. Starting from scratch.")
+        trainer = Trainer(**cfg.trainer, callbacks=callbacks)
+    
     if trainer.logger:
         trainer.logger.log_hyperparams(Namespace(**cfg))
 
