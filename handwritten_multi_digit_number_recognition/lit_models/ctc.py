@@ -126,9 +126,9 @@ class CTCLitModel(LightningModule):
         decoded = self.greedy_decode(logprobs, max_length=y.shape[1])  # (B, max_length)
         self.val_acc(decoded, y)
         #self.log("val/acc", self.val_acc, on_step=False, on_epoch=True)
-        print(f"val_acc: {self.val_acc()}")
+        print(f"val_acc: {self.val_acc.compute()}")
         self.val_cer(decoded, y)
-        print(f"val_cer: {self.val_cer()}")
+        print(f"val_cer: {self.val_cer.compute()}")
         #self.log("val/cer", self.val_cer, on_step=False, on_epoch=True, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
