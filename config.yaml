@@ -14,7 +14,7 @@ callbacks:
   model_checkpoint:
     dirpath: "/kaggle/working/outputs"
     save_top_k: 1
-    save_weights_only: true
+    save_weights_only: false
     mode: "min"
     monitor: "val/loss"
     filename: "lit_model"
