@@ -1,11 +1,10 @@
 from argparse import Namespace
-from typing import List, Optional
+from typing import List
 
 import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import Callback, EarlyStopping, ModelCheckpoint
-from pytorch_lightning.loggers.wandb import WandbLogger
 
 from handwritten_digit_string_recognition.data import MultiDigitMNIST
 from handwritten_digit_string_recognition.lit_models import CTCLitModel
@@ -27,11 +26,7 @@ def main(cfg: DictConfig):
     if cfg.callbacks.early_stopping:
         callbacks.append(EarlyStopping(**cfg.callbacks.early_stopping))
 
-    logger: Optional[WandbLogger] = None
-    if cfg.logger:
-        logger = WandbLogger(**cfg.logger)
-
-    trainer = Trainer(**cfg.trainer, callbacks=callbacks, logger=logger)
+    trainer = Trainer(**cfg.trainer, callbacks=callbacks)
 
     if trainer.logger:
         trainer.logger.log_hyperparams(Namespace(**cfg))

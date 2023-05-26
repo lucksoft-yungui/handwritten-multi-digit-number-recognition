@@ -5,3 +5,7 @@ smart-open==5.1.0
 streamlit==0.86.0
 streamlit_drawable_canvas==0.8.0
 matplotlib==3.4.3
+awslambdaric==1.2.0
+fastapi==0.66.0
+h5py==3.3.0
+hydra-core==1.1.0
