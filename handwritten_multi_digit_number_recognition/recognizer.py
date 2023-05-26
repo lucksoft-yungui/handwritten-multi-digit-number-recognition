@@ -8,9 +8,8 @@ from PIL import Image
 from . import utils
 from .lit_models import CTCLitModel
 
-
-MODEL_CKPT_FILENAME = Path(__file__).resolve().parents[1] / "artifacts" / "model.pt"
-
+pp = Path(__file__).resolve().parents[1]
+MODEL_CKPT_FILENAME = "/kaggle/input/hwdigitrec/lit_model.ckpt"
 
 class Recognizer:
     """Model used for production."""
