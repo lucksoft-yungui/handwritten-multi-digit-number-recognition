@@ -12,7 +12,7 @@ from .single_digit_mnist import SingleDigitMNIST
 from .utils import BaseDataset, DatasetGenerator
 
 
-class MultiDigitMNIST(BaseDataModule):
+class MultiDigit                                                                                                                                                    (BaseDataModule): 
     """Data module for a synthetic multi-digit MNIST dataset.
 
     Args:
@@ -34,7 +34,7 @@ class MultiDigitMNIST(BaseDataModule):
         min_overlap: float = 0.0,
         max_overlap: float = 0.5,
         **kwargs,
-    ) -> None:
+    ) -> None:   
         super().__init__(**kwargs)
         assert 1 <= max_length
         assert 0 <= min_overlap < max_overlap
