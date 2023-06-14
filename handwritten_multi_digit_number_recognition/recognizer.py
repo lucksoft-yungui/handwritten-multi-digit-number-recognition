@@ -7,6 +7,9 @@ from PIL import Image
 
 from . import utils
 from .lit_models import CTCLitModel
+import cv2
+import numpy as np
+
 
 MODEL_CKPT_FILENAME = "./artifacts/lit_model.ckpt"
 
@@ -46,7 +49,17 @@ class Recognizer:
             image_pil = utils.read_image_pil(image, grayscale=True)
 
         image_pil_new = self.resize_image(image_pil)
-        image_tensor = self.transform(image_pil_new)
+        
+        # 将 PIL 图像转换为 OpenCV 格式
+        image_np = np.array(image_pil_new)
+
+        # 二值化图像
+        _, binary_img = cv2.threshold(image_np, 128, 255, cv2.THRESH_BINARY_INV)
+
+        # 将二值化后的图像转回 PIL 格式以便进行后续处理
+        binary_pil = Image.fromarray(binary_img)
+
+        image_tensor = self.transform(binary_pil)
         decoded, pred_lengths = self.model(image_tensor.unsqueeze(0))
         # Remove the paddings
         digit_lists = decoded[0][: pred_lengths[0]]

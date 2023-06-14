@@ -41,13 +41,15 @@ class DatasetGenerator:
         min_overlap: float,
         max_overlap: float,
         padding_index: int,
+        dot_index: int,   # 新添加的属性，表示小数点的标签
     ) -> None:
         self.single_digit_mnist = single_digit_mnist
         self.max_length = max_length
         self.min_overlap = min_overlap
         self.max_overlap = max_overlap
         self.padding_index = padding_index
-
+        
+        self.dot_index = dot_index
         self.mnist_digit_dim = 28
         self.samples_by_digit = self._get_samples_by_digit()
 
@@ -56,8 +58,13 @@ class DatasetGenerator:
         samples_by_digit = defaultdict(list)
         for image, digit in self.single_digit_mnist:
             samples_by_digit[digit].append(image.squeeze())
+
+        # 动态生成小数点图像
         blank_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
-        samples_by_digit[-1].append(blank_image)
+        dot_image = torch.zeros_like(blank_image)
+        dot_image[24:28, 12:16] = 1  # 在图像的底部中心位置创建一个小的白色区域作为小数点
+        samples_by_digit[self.dot_index].append(dot_image)  # dot_index 是你为小数点设置的标签
+        samples_by_digit[self.padding_index].append(blank_image)
         return samples_by_digit
 
     def generate(self, num_samples) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -73,25 +80,26 @@ class DatasetGenerator:
         images = torch.zeros((num_samples, 32, self.mnist_digit_dim * self.max_length))
         for i in range(num_samples):
             rand_num = self._get_random_number()
-            for j, digit in enumerate(str(rand_num)):
-                labels[i, j] = int(digit)
+            for j, digit in enumerate(rand_num):
+                labels[i, j] = self.dot_index if digit == '.' else int(digit)
             images[i] = self._construct_image_from_number(rand_num)
         return images, labels
 
-    def _get_random_number(self) -> int:
-        """Generate a random number.
-
-        The probabiltiy of getting a small number is artifically inflated; otherwise,
-        there will be not enough numbers of short lengths and the model will not
-        generalize well.
-        """
-        num_digits_choices = list(range(1, self.max_length + 1))
+    def _get_random_number(self) -> str:
+        """Generate a random number with a decimal point at a random position."""
+        num_digits_choices = list(range(1, self.max_length))
         probs = [n / sum(num_digits_choices) for n in num_digits_choices]
         num_digits = random.choices(num_digits_choices, weights=probs)[0]
-        rand_num = random.randint(
+        rand_num = str(random.randint(
             int("1" + "0" * (num_digits - 1)), int("1" + "0" * num_digits) - 1
-        )
+        ))
+        
+        if num_digits > 1:  # ensure we have enough digits to place a dot
+            dot_position = random.randint(1, len(rand_num) - 1)  # don't put dot at the start or the end
+            rand_num = rand_num[:dot_position] + '.' + rand_num[dot_position:]
+        
         return rand_num
+
 
     def _construct_image_from_number(self, number: int) -> torch.Tensor:
         """Concatenate images of single digits."""
@@ -116,13 +124,12 @@ class DatasetGenerator:
             x += width_increment
         return multi_digit_image
 
-    def _add_left_and_right_paddings(self, number: int) -> List[int]:
-        """Add paddings to left and right of the number."""
-        digits = [int(digit) for digit in list(str(number))]
-        remanining_length = self.max_length - len(digits)
-        left_padding = random.randint(0, remanining_length)
-        right_padding = remanining_length - left_padding
-        digits = [-1] * left_padding + digits + [-1] * right_padding
+    def _add_left_and_right_paddings(self, number: str) -> List[int]:
+        digits = [self.dot_index if digit == '.' else int(digit) for digit in list(str(number))]
+        remaining_length = self.max_length - len(digits)
+        left_padding = random.randint(0, remaining_length)
+        right_padding = remaining_length - left_padding
+        digits = [self.padding_index] * left_padding + digits + [self.padding_index] * right_padding
         return digits
 
 
