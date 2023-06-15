@@ -90,6 +90,7 @@ class MultiDigitMNIST(BaseDataModule):
         self.single_digit_mnist.setup()
         self.dataset_dirname.mkdir(parents=True, exist_ok=True)
 
+        counter = 0
         for split in ("train", "val", "test"):
             print(f"Preparing {split} dataset...")
             image_generator = DatasetGenerator(
@@ -103,27 +104,27 @@ class MultiDigitMNIST(BaseDataModule):
             images, labels = image_generator.generate(self.num_samples[split])
 
             # 创建保存图像的目录
-            img_dir = "/Users/peiyandong/Documents/code/ai/handwritten-multi-digit-number-recognition/data/data-digit/img"
+            img_dir = "/Users/peiyandong/Documents/code/ai/train-data/data-digit/img"
             os.makedirs(img_dir, exist_ok=True)
 
             # 确保标签文件的目录存在
-            label_dir = "/Users/peiyandong/Documents/code/ai/handwritten-multi-digit-number-recognition/data/data-digit/label"
+            label_dir = "/Users/peiyandong/Documents/code/ai/train-data/data-digit/label"
             os.makedirs(label_dir, exist_ok=True)
             label_file = f"{label_dir}/{split}.txt"
 
             with open(label_file, 'w') as f:
                 for i, (image, label) in enumerate(zip(images, labels)):
                     # 将图像保存为PNG文件
-                    img_file = f"{img_dir}/{i}.png"
-                    Image.fromarray(
-                        (image.numpy() * 255).astype(np.uint8)).save(img_file)
+                    img_file = f"{img_dir}/{counter}.png"
+                    Image.fromarray((image.numpy() * 255).astype(np.uint8)).save(img_file)
 
                     # 将标签转换为字符串
                     label_str = ''.join(['.' if digit.item() == 12 else str(
                         digit.item()) for digit in label if digit.item() != self.padding_index])
 
                     # 写入标签文件
-                    f.write(f"{i}.png {label_str}\n")
+                    f.write(f"{counter}.png {label_str}\n")
+                    counter += 1
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage in ("fit", None):

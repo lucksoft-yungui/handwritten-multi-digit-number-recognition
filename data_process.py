@@ -12,7 +12,7 @@ from handwritten_multi_digit_number_recognition.lit_models import CTCLitModel
 
 @hydra.main(config_path="./", config_name="config")
 def main(cfg: DictConfig):
-    datamodule = MultiDigitMNIST(num_train=10000,num_test=500,num_val=500,max_length=6)
+    datamodule = MultiDigitMNIST(num_train=10000,num_test=1000,num_val=500,max_length=6)
     datamodule.prepare_data()
 
 if __name__ == "__main__":
