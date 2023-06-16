@@ -145,6 +145,28 @@ class DatasetGenerator:
             digit_image = torch.clone(
                 digit_image
             )  # To avoid overwriting the original image
+
+            # 50% 的概率缩放图片
+            if random.random() < 0.5:
+                # 随机缩放数字
+                resize_factor = np.random.uniform(0.5, 1.0)  # 选择一个0.5到1.0之间的随机数作为缩放因子
+                new_dim = int(resize_factor * self.mnist_digit_dim)
+                
+                # 注意，我们传递一个元组而不是一个整数给transforms.Resize
+                digit_image = transforms.Resize((new_dim, new_dim))(
+                    digit_image.unsqueeze(0)  # Unsqueeze to add a channel dimension
+                ).squeeze(0)  # Squeeze to remove the channel dimension
+                
+                # 创建一个新的空白图像并将缩放和移动后的数字放入其中
+                new_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
+                
+                # 在合适的垂直范围内随机移动数字
+                vertical_position = np.random.randint(0, self.mnist_digit_dim - new_dim)
+                new_image[vertical_position:vertical_position+new_dim, vertical_position:vertical_position+new_dim] = digit_image
+                
+                # 更新 digit_image
+                digit_image = new_image
+
             digit_image[:, :overlap_width] = torch.maximum(
                 multi_digit_image[y : y + self.mnist_digit_dim, x : x + overlap_width],
                 digit_image[:, :overlap_width],
@@ -154,6 +176,9 @@ class DatasetGenerator:
             ] = digit_image
             x += width_increment
         return multi_digit_image
+
+
+
 
     def _add_left_and_right_paddings(self, number: str) -> List[int]:
         digits = [self.dot_index if digit == '.' else int(digit) for digit in list(str(number))]
