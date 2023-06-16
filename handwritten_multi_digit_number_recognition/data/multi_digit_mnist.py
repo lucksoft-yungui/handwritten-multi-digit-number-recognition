@@ -99,7 +99,8 @@ class MultiDigitMNIST(BaseDataModule):
                 min_overlap=self.min_overlap,
                 max_overlap=self.max_overlap,
                 padding_index=self.padding_index,
-                dot_index=12
+                dot_index=12,
+                dot_image_directory="/Users/peiyandong/Documents/code/ai/train-data/hwdb/single/1.0/raw/train/11776"
             )
             images, labels = image_generator.generate(self.num_samples[split])
 

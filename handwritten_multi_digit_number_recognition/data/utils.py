@@ -5,6 +5,11 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 import torch
 from torch.utils.data import Dataset, Subset, random_split
 
+from PIL import Image
+import torchvision.transforms as transforms
+import os
+import numpy as np
+
 
 class BaseDataset(Dataset):
     def __init__(
@@ -42,6 +47,7 @@ class DatasetGenerator:
         max_overlap: float,
         padding_index: int,
         dot_index: int,   # 新添加的属性，表示小数点的标签
+        dot_image_directory: str,  # 新添加的属性，表示小数点图像的路径
     ) -> None:
         self.single_digit_mnist = single_digit_mnist
         self.max_length = max_length
@@ -49,6 +55,7 @@ class DatasetGenerator:
         self.max_overlap = max_overlap
         self.padding_index = padding_index
         
+        self.dot_image_directory = dot_image_directory
         self.dot_index = dot_index
         self.mnist_digit_dim = 28
         self.samples_by_digit = self._get_samples_by_digit()
@@ -59,13 +66,34 @@ class DatasetGenerator:
         for image, digit in self.single_digit_mnist:
             samples_by_digit[digit].append(image.squeeze())
 
-        # 动态生成小数点图像
+        # 读取小数点图像
+        dot_image_files = os.listdir(self.dot_image_directory)
+        transform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+        ])
+        for file_name in dot_image_files:
+            if file_name.endswith('.png'):
+                image_path = os.path.join(self.dot_image_directory, file_name)
+                dot_image = Image.open(image_path)
+                dot_image = transform(dot_image)
+
+                # 反转小数点图像的颜色
+                dot_image = 1.0 - dot_image
+                
+                # 将小数点图像缩放到7x7
+                dot_image = transforms.Resize((7, 7))(dot_image)
+                
+                # 创建一个空白图像，并在底部中心位置放置小数点图像
+                blank_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
+                blank_image[21:28, 10:17] = dot_image  # 调整坐标以使小数点居中
+                
+                samples_by_digit[self.dot_index].append(blank_image)
+
         blank_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
-        dot_image = torch.zeros_like(blank_image)
-        dot_image[24:28, 12:16] = 1  # 在图像的底部中心位置创建一个小的白色区域作为小数点
-        samples_by_digit[self.dot_index].append(dot_image)  # dot_index 是你为小数点设置的标签
         samples_by_digit[self.padding_index].append(blank_image)
         return samples_by_digit
+
 
     def generate(self, num_samples) -> Tuple[torch.Tensor, torch.Tensor]:
         """Main methods to generate a dataset.
