@@ -80,14 +80,17 @@ class DatasetGenerator:
 
                 # 反转小数点图像的颜色
                 dot_image = 1.0 - dot_image
-                
-                # 将小数点图像缩放到7x7
-                dot_image = transforms.Resize((7, 7))(dot_image)
-                
+
+                # 将小数点图像缩放到6x6
+                dot_image = transforms.Resize((6, 6))(dot_image)
+
                 # 创建一个空白图像，并在底部中心位置放置小数点图像
                 blank_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
-                blank_image[21:28, 10:17] = dot_image  # 调整坐标以使小数点居中
                 
+                # 增加随机垂直位置
+                vertical_position = np.random.randint(14, 23)  # 范围为14-23，以保证小数点出现在字体底部附近
+                blank_image[vertical_position:vertical_position+6, 11:17] = dot_image  # 调整坐标以使小数点居中
+
                 samples_by_digit[self.dot_index].append(blank_image)
 
         blank_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))

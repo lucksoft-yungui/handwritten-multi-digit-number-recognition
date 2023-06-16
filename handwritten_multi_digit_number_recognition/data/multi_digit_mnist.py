@@ -111,7 +111,7 @@ class MultiDigitMNIST(BaseDataModule):
             # 确保标签文件的目录存在
             label_dir = "/Users/peiyandong/Documents/code/ai/train-data/data-digit/label"
             os.makedirs(label_dir, exist_ok=True)
-            label_file = f"{label_dir}/{split}.txt"
+            label_file = f"{label_dir}/digit_{split}.txt"
 
             with open(label_file, 'w') as f:
                 for i, (image, label) in enumerate(zip(images, labels)):
