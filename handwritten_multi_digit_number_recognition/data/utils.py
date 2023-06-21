@@ -149,7 +149,7 @@ class DatasetGenerator:
             # 50% 的概率缩放图片
             if random.random() < 0.5:
                 # 随机缩放数字
-                resize_factor = np.random.uniform(0.5, 1.0)  # 选择一个0.5到1.0之间的随机数作为缩放因子
+                resize_factor = np.random.uniform(0.7, 1.0)  # 选择一个0.5到1.0之间的随机数作为缩放因子
                 new_dim = int(resize_factor * self.mnist_digit_dim)
                 
                 # 注意，我们传递一个元组而不是一个整数给transforms.Resize
@@ -175,6 +175,13 @@ class DatasetGenerator:
                 y : y + self.mnist_digit_dim, x : x + self.mnist_digit_dim
             ] = digit_image
             x += width_increment
+            
+        # 颜色反转
+        multi_digit_image = 1.0 - multi_digit_image
+
+        # 二值化处理，阈值设为0.5
+        multi_digit_image = torch.where(multi_digit_image > 0.6, torch.tensor(1.0), torch.tensor(0.0))
+
         return multi_digit_image
 
 
