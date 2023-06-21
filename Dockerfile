@@ -4,13 +4,14 @@ FROM python:3.8 AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get -y install cmake
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 
 # 复制 requirements.txt 文件并安装依赖
 COPY requirements/prod.txt ./requirements.txt
 RUN pip install -r requirements.txt
 
 # 第二阶段：复制代码和目录
-FROM python:3.8-slim
+FROM builder
 
 WORKDIR /app
 

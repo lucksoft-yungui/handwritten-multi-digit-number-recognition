@@ -11,8 +11,12 @@ from .base_data_module import BaseDataModule
 from .single_digit_mnist import SingleDigitMNIST
 from .utils import BaseDataset, DatasetGenerator
 
+import matplotlib.pyplot as plt
+import numpy as np
+import os
 
-class MultiDigit                                                                                                                                                    (BaseDataModule): 
+
+class MultiDigitMNIST(BaseDataModule):
     """Data module for a synthetic multi-digit MNIST dataset.
 
     Args:
@@ -34,7 +38,7 @@ class MultiDigit                                                                
         min_overlap: float = 0.0,
         max_overlap: float = 0.5,
         **kwargs,
-    ) -> None:   
+    ) -> None:
         super().__init__(**kwargs)
         assert 1 <= max_length
         assert 0 <= min_overlap < max_overlap
@@ -85,24 +89,43 @@ class MultiDigit                                                                
         self.single_digit_mnist.prepare_data()
         self.single_digit_mnist.setup()
         self.dataset_dirname.mkdir(parents=True, exist_ok=True)
-        with h5py.File(self.dataset_filename, "w") as f:
-            for split in ("train", "val", "test"):
-                print(f"Preparing {split} dataset...")
-                image_generator = DatasetGenerator(
-                    self.single_digit_mnist.dataset[split],
-                    max_length=self.max_length,
-                    min_overlap=self.min_overlap,
-                    max_overlap=self.max_overlap,
-                    padding_index=self.padding_index,
-                )
-                images, labels = image_generator.generate(self.num_samples[split])
-                f.create_dataset(
-                    f"X_{split}", data=images, dtype="f4", compression="lzf"
-                )
-                f.create_dataset(
-                    f"y_{split}", data=labels, dtype="i1", compression="lzf"
-                )
-        print(f"Dataset saved to {str(self.dataset_filename)}")
+
+        counter = 0
+        for split in ("train", "val", "test"):
+            print(f"Preparing {split} dataset...")
+            image_generator = DatasetGenerator(
+                self.single_digit_mnist.dataset[split],
+                max_length=self.max_length,
+                min_overlap=self.min_overlap,
+                max_overlap=self.max_overlap,
+                padding_index=self.padding_index,
+                dot_index=12,
+                dot_image_directory="/Users/peiyandong/Documents/code/ai/train-data/hwdb/single/1.0/raw/train/11776"
+            )
+            images, labels = image_generator.generate(self.num_samples[split])
+
+            # 创建保存图像的目录
+            img_dir = "/Users/peiyandong/Documents/code/ai/train-data/data-digit/img"
+            os.makedirs(img_dir, exist_ok=True)
+
+            # 确保标签文件的目录存在
+            label_dir = "/Users/peiyandong/Documents/code/ai/train-data/data-digit/label"
+            os.makedirs(label_dir, exist_ok=True)
+            label_file = f"{label_dir}/digit_{split}.txt"
+
+            with open(label_file, 'w') as f:
+                for i, (image, label) in enumerate(zip(images, labels)):
+                    # 将图像保存为PNG文件
+                    img_file = f"{img_dir}/{counter}.png"
+                    Image.fromarray((image.numpy() * 255).astype(np.uint8)).save(img_file)
+
+                    # 将标签转换为字符串
+                    label_str = ''.join(['.' if digit.item() == 12 else str(
+                        digit.item()) for digit in label if digit.item() != self.padding_index])
+
+                    # 写入标签文件
+                    f.write(f"{counter}.png {label_str}\n")
+                    counter += 1
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage in ("fit", None):

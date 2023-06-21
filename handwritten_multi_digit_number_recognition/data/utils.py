@@ -5,6 +5,11 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 import torch
 from torch.utils.data import Dataset, Subset, random_split
 
+from PIL import Image
+import torchvision.transforms as transforms
+import os
+import numpy as np
+
 
 class BaseDataset(Dataset):
     def __init__(
@@ -41,13 +46,17 @@ class DatasetGenerator:
         min_overlap: float,
         max_overlap: float,
         padding_index: int,
+        dot_index: int,   # 新添加的属性，表示小数点的标签
+        dot_image_directory: str,  # 新添加的属性，表示小数点图像的路径
     ) -> None:
         self.single_digit_mnist = single_digit_mnist
         self.max_length = max_length
         self.min_overlap = min_overlap
         self.max_overlap = max_overlap
         self.padding_index = padding_index
-
+        
+        self.dot_image_directory = dot_image_directory
+        self.dot_index = dot_index
         self.mnist_digit_dim = 28
         self.samples_by_digit = self._get_samples_by_digit()
 
@@ -56,9 +65,38 @@ class DatasetGenerator:
         samples_by_digit = defaultdict(list)
         for image, digit in self.single_digit_mnist:
             samples_by_digit[digit].append(image.squeeze())
+
+        # 读取小数点图像
+        dot_image_files = os.listdir(self.dot_image_directory)
+        transform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+        ])
+        for file_name in dot_image_files:
+            if file_name.endswith('.png'):
+                image_path = os.path.join(self.dot_image_directory, file_name)
+                dot_image = Image.open(image_path)
+                dot_image = transform(dot_image)
+
+                # 反转小数点图像的颜色
+                dot_image = 1.0 - dot_image
+
+                # 将小数点图像缩放到6x6
+                dot_image = transforms.Resize((6, 6))(dot_image)
+
+                # 创建一个空白图像，并在底部中心位置放置小数点图像
+                blank_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
+                
+                # 增加随机垂直位置
+                vertical_position = np.random.randint(14, 23)  # 范围为14-23，以保证小数点出现在字体底部附近
+                blank_image[vertical_position:vertical_position+6, 11:17] = dot_image  # 调整坐标以使小数点居中
+
+                samples_by_digit[self.dot_index].append(blank_image)
+
         blank_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
-        samples_by_digit[-1].append(blank_image)
+        samples_by_digit[self.padding_index].append(blank_image)
         return samples_by_digit
+
 
     def generate(self, num_samples) -> Tuple[torch.Tensor, torch.Tensor]:
         """Main methods to generate a dataset.
@@ -73,25 +111,26 @@ class DatasetGenerator:
         images = torch.zeros((num_samples, 32, self.mnist_digit_dim * self.max_length))
         for i in range(num_samples):
             rand_num = self._get_random_number()
-            for j, digit in enumerate(str(rand_num)):
-                labels[i, j] = int(digit)
+            for j, digit in enumerate(rand_num):
+                labels[i, j] = self.dot_index if digit == '.' else int(digit)
             images[i] = self._construct_image_from_number(rand_num)
         return images, labels
 
-    def _get_random_number(self) -> int:
-        """Generate a random number.
-
-        The probabiltiy of getting a small number is artifically inflated; otherwise,
-        there will be not enough numbers of short lengths and the model will not
-        generalize well.
-        """
-        num_digits_choices = list(range(1, self.max_length + 1))
+    def _get_random_number(self) -> str:
+        """Generate a random number with a decimal point at a random position."""
+        num_digits_choices = list(range(1, self.max_length))
         probs = [n / sum(num_digits_choices) for n in num_digits_choices]
         num_digits = random.choices(num_digits_choices, weights=probs)[0]
-        rand_num = random.randint(
+        rand_num = str(random.randint(
             int("1" + "0" * (num_digits - 1)), int("1" + "0" * num_digits) - 1
-        )
+        ))
+        
+        if num_digits > 1:  # ensure we have enough digits to place a dot
+            dot_position = random.randint(1, len(rand_num) - 1)  # don't put dot at the start or the end
+            rand_num = rand_num[:dot_position] + '.' + rand_num[dot_position:]
+        
         return rand_num
+
 
     def _construct_image_from_number(self, number: int) -> torch.Tensor:
         """Concatenate images of single digits."""
@@ -106,6 +145,28 @@ class DatasetGenerator:
             digit_image = torch.clone(
                 digit_image
             )  # To avoid overwriting the original image
+
+            # 50% 的概率缩放图片
+            if random.random() < 0.5:
+                # 随机缩放数字
+                resize_factor = np.random.uniform(0.7, 1.0)  # 选择一个0.5到1.0之间的随机数作为缩放因子
+                new_dim = int(resize_factor * self.mnist_digit_dim)
+                
+                # 注意，我们传递一个元组而不是一个整数给transforms.Resize
+                digit_image = transforms.Resize((new_dim, new_dim))(
+                    digit_image.unsqueeze(0)  # Unsqueeze to add a channel dimension
+                ).squeeze(0)  # Squeeze to remove the channel dimension
+                
+                # 创建一个新的空白图像并将缩放和移动后的数字放入其中
+                new_image = torch.zeros((self.mnist_digit_dim, self.mnist_digit_dim))
+                
+                # 在合适的垂直范围内随机移动数字
+                vertical_position = np.random.randint(0, self.mnist_digit_dim - new_dim)
+                new_image[vertical_position:vertical_position+new_dim, vertical_position:vertical_position+new_dim] = digit_image
+                
+                # 更新 digit_image
+                digit_image = new_image
+
             digit_image[:, :overlap_width] = torch.maximum(
                 multi_digit_image[y : y + self.mnist_digit_dim, x : x + overlap_width],
                 digit_image[:, :overlap_width],
@@ -114,15 +175,24 @@ class DatasetGenerator:
                 y : y + self.mnist_digit_dim, x : x + self.mnist_digit_dim
             ] = digit_image
             x += width_increment
+            
+        # 颜色反转
+        multi_digit_image = 1.0 - multi_digit_image
+
+        # 二值化处理，阈值设为0.5
+        multi_digit_image = torch.where(multi_digit_image > 0.6, torch.tensor(1.0), torch.tensor(0.0))
+
         return multi_digit_image
 
-    def _add_left_and_right_paddings(self, number: int) -> List[int]:
-        """Add paddings to left and right of the number."""
-        digits = [int(digit) for digit in list(str(number))]
-        remanining_length = self.max_length - len(digits)
-        left_padding = random.randint(0, remanining_length)
-        right_padding = remanining_length - left_padding
-        digits = [-1] * left_padding + digits + [-1] * right_padding
+
+
+
+    def _add_left_and_right_paddings(self, number: str) -> List[int]:
+        digits = [self.dot_index if digit == '.' else int(digit) for digit in list(str(number))]
+        remaining_length = self.max_length - len(digits)
+        left_padding = random.randint(0, remaining_length)
+        right_padding = remaining_length - left_padding
+        digits = [self.padding_index] * left_padding + digits + [self.padding_index] * right_padding
         return digits
 
 
